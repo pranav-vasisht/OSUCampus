@@ -1,6 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { ChevronRight, ZoomIn, ZoomOut, Maximize2, Network, ChevronsDown, ChevronsUp } from 'lucide-react';
-import { ChevronRight, ZoomIn, ZoomOut, Maximize2, Network } from 'lucide-react';
 import { buildMindMapClickPayload } from '../lib/mindMapContext';
 
 // Collect paths up to a depth for initial expansion
