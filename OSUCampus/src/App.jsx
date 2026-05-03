@@ -40,33 +40,37 @@ import {
 import ChatTree from './components/ChatTree';
 import './index.css';
 
-/** Remove legacy synthetic "Conversation" root so the first user message is the tree trunk. */
-function stripSyntheticRootNodes(raw) {
-  if (!raw || typeof raw !== 'object') return {};
-  let next = { ...raw };
-  const syntheticIds = Object.values(next)
-    .filter((n) => n && n.role === 'root' && !n.parentId)
-    .map((n) => n.id);
+const CHAT_ROOT_ID = 'chat_root';
 
-  for (const rid of syntheticIds) {
-    const meta = next[rid];
-    if (!meta) continue;
-    const children = meta.children || [];
-    delete next[rid];
-    children.forEach((cid) => {
-      if (next[cid]) {
-        next[cid] = { ...next[cid], parentId: null };
-      }
-    });
-  }
-  return next;
-}
+function ensureChatRootTree(raw) {
+  const base = raw && typeof raw === 'object' ? { ...raw } : {};
 
-function normalizeChatTree(raw) {
-  if (!raw || typeof raw !== 'object' || Object.keys(raw).length === 0) {
-    return {};
+  if (!base[CHAT_ROOT_ID]) {
+    base[CHAT_ROOT_ID] = {
+      id: CHAT_ROOT_ID,
+      parentId: null,
+      children: [],
+      links: [],
+      role: 'root',
+      text: '',
+    };
   }
-  return stripSyntheticRootNodes(raw);
+
+  // Migrate any previous \"rootless\" trunks to be children of the explicit blank root.
+  const root = base[CHAT_ROOT_ID];
+  const children = new Set(root.children || []);
+
+  for (const n of Object.values(base)) {
+    if (!n || typeof n !== 'object') continue;
+    if (n.id === CHAT_ROOT_ID) continue;
+    if (!n.parentId) {
+      base[n.id] = { ...n, parentId: CHAT_ROOT_ID };
+      children.add(n.id);
+    }
+  }
+
+  base[CHAT_ROOT_ID] = { ...root, children: Array.from(children) };
+  return base;
 }
 
 /** Stable key so MindMap remounts when the graph content changes (resets expansion without an effect). */
@@ -174,9 +178,9 @@ function App() {
     skipChatSaveRef.current = true;
     const saved = localStorage.getItem(`chat_nodes_${uid}`);
     const parsed = saved ? JSON.parse(saved) : {};
-    const active = localStorage.getItem(`chat_active_node_id_${uid}`) || null;
+    const active = localStorage.getItem(`chat_active_node_id_${uid}`) || CHAT_ROOT_ID;
     queueMicrotask(() => {
-      setNodes(normalizeChatTree(parsed));
+      setNodes(ensureChatRootTree(parsed));
       setActiveNodeId(active);
       queueMicrotask(() => {
         skipChatSaveRef.current = false;

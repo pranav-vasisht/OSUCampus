@@ -9,6 +9,7 @@ const TreeNode = ({ nodeId, nodes, activePathIds, activeNodeId, onSelect, depth 
   const node = nodes[nodeId];
   if (!node) return null;
 
+  const isRoot = node.role === 'root';
   const inActivePath = activePathIds.has(nodeId);
   const isActiveNode = nodeId === activeNodeId;
   const isUser = node.role === 'user';
@@ -16,8 +17,11 @@ const TreeNode = ({ nodeId, nodes, activePathIds, activeNodeId, onSelect, depth 
   const treeColor = node.treeColor;
   const colorClass = treeColor ? ` tree-color-${treeColor}` : '';
 
-  const tooltip = `${isTrunk ? 'Initial prompt' : isUser ? 'User' : 'Campus'}: ${node.text.substring(0, 120)}${node.text.length > 120 ? '…' : ''}`;
-  const snippet = node.text.replace(/\s+/g, ' ').trim();
+  const safeText = (node.text || '').toString();
+  const tooltip = isRoot
+    ? 'New chat: select this, then send a prompt to start a new branch.'
+    : `${isTrunk ? 'Initial prompt' : isUser ? 'User' : 'Campus'}: ${safeText.substring(0, 120)}${safeText.length > 120 ? '…' : ''}`;
+  const snippet = safeText.replace(/\s+/g, ' ').trim();
   const shortLabel =
     snippet.length > 56 ? `${snippet.slice(0, 56)}…` : snippet;
 
@@ -55,7 +59,7 @@ const TreeNode = ({ nodeId, nodes, activePathIds, activeNodeId, onSelect, depth 
       <div className={`tree-node-item ${isTrunk && !isUser ? 'is-trunk-row' : ''}`}>
         {isTrunk && !isUser ? (
           <div className="tree-trunk-stack">
-            <span className="tree-trunk-badge">Initial prompt</span>
+            <span className="tree-trunk-badge">{isRoot ? 'New chat' : 'Initial prompt'}</span>
             <button
               type="button"
               className={`tree-trunk-card ${inActivePath ? 'in-path' : ''} ${isActiveNode ? 'is-active-node' : ''} trunk-model${colorClass}`}
@@ -63,7 +67,7 @@ const TreeNode = ({ nodeId, nodes, activePathIds, activeNodeId, onSelect, depth 
               title={tooltip}
               data-node-id={nodeId}
             >
-              {shortLabel || '(empty)'}
+              {isRoot ? '(blank chat)' : (shortLabel || '(empty)')}
             </button>
           </div>
         ) : (
@@ -199,7 +203,7 @@ export default function ChatTree({ nodes, activeNodeId, onSelectNode }) {
       <div className="chat-tree-header">
         <span className="text-xs text-muted">Conversation Tree</span>
         <p className="chat-tree-hint">
-          The <strong>initial prompt</strong> is the parent. Select any node, then reply or use <strong>Branch</strong> to grow outward.
+          Select <strong>New chat</strong> to start a fresh branch, or select any node to continue branching from that point.
         </p>
       </div>
       <div className="chat-tree-scroll chat-tree-scroll--vertical-only" ref={containerRef}>
