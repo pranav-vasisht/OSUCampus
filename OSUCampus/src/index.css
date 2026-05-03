@@ -1133,8 +1133,10 @@ body {
 }
 
 .mm-canvas-inner {
-  display: inline-block;
-  padding: 2rem;
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  padding: 2rem 2rem 2rem 1.25rem;
 }
 
 /* ─── Zoom Controls ───────────────────────────────────── */
@@ -1168,10 +1170,11 @@ body {
   background-color: rgba(59, 130, 246, 0.1);
 }
 
-/* ─── Horizontal Tree ─────────────────────────────────── */
+/* ─── Vertical tree (top → bottom); siblings share one row ─ */
 
 .ht-wrap {
   display: flex;
+  flex-direction: column;
   align-items: center;
 }
 
@@ -1184,7 +1187,8 @@ body {
   border-radius: 0.6rem;
   color: var(--nc);
   background-color: rgba(0, 0, 0, 0.25);
-  white-space: nowrap;
+  white-space: normal;
+  max-width: min(100%, 28rem);
   font-size: 0.85rem;
   font-weight: 500;
   position: relative;
@@ -1224,50 +1228,73 @@ body {
 .ht-toggle:hover { background-color: rgba(255,255,255,0.1); }
 .ht-toggle.open { transform: rotate(90deg); }
 
-/* Horizontal line FROM parent to children rail */
+/* Vertical stub from parent into the sibling row */
 .ht-label.has-children.is-open::after {
   content: '';
   position: absolute;
-  right: -20px;
-  top: 50%;
-  width: 20px;
-  height: 2px;
+  left: 50%;
+  top: 100%;
+  width: 2px;
+  height: 10px;
   background-color: var(--border-color);
-  transform: translateY(-50%);
+  transform: translateX(-50%);
 }
 
-/* Children column */
+/* All children of a node on one horizontal level */
 .ht-sub {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-left: 20px;
-  padding: 6px 0;
-  padding-left: 20px;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 0.75rem 1rem;
+  margin-top: 10px;
+  margin-left: 0;
+  padding: 14px 0 0;
+  border-left: none;
   position: relative;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-/* Vertical rail on left of children */
+/* Spine across all siblings */
 .ht-sub::before {
   content: '';
   position: absolute;
-  left: 0;
   top: 0;
-  bottom: 0;
-  width: 2px;
+  left: 0;
+  right: 0;
+  height: 2px;
   background-color: var(--border-color);
 }
 
-/* Horizontal connector TO each child from the rail */
-.ht-sub > .ht-wrap > .ht-label::before {
+/* One column per child: drop from spine to label, subtree below */
+.ht-sub > .ht-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding-top: 14px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ht-sub > .ht-wrap::before {
   content: '';
   position: absolute;
-  left: -20px;
-  top: 50%;
-  width: 20px;
-  height: 2px;
+  top: 2px;
+  left: 50%;
+  width: 2px;
+  height: 12px;
   background-color: var(--border-color);
-  transform: translateY(-50%);
+  transform: translateX(-50%);
+}
+
+.ht-sub > .ht-wrap > .ht-sub {
+  margin-top: 10px;
+  width: max-content;
+  max-width: min(100vw, 100%);
+  align-self: center;
 }
 
 

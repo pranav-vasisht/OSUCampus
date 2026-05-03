@@ -14,6 +14,7 @@ import {
   generateQuiz,
   generateMindMap,
 } from './lib/gemini';
+import { formatMindMapUserMessage } from './lib/mindMapContext';
 import {
   Settings,
   BookOpen,
@@ -129,9 +130,9 @@ function App() {
     setActiveView('chat');
   };
 
-  const handleNodeClick = (label) => {
-    // In split view, chat is already visible — just send the message
-    handleSendMessage(`Define and explain the concept: "${label}"`);
+  const handleNodeClick = (payload) => {
+    const text = formatMindMapUserMessage(payload);
+    if (text) handleSendMessage(text);
   };
 
   // ─── Render active view ────────────────────────────────────────────

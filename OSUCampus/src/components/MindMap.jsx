@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { ChevronRight, ZoomIn, ZoomOut, Maximize2, Network } from 'lucide-react';
+import { buildMindMapClickPayload } from '../lib/mindMapContext';
 
 // Collect paths up to a depth for initial expansion
 function getInitialExpanded(node, maxDepth, path = '0', depth = 0) {
@@ -15,7 +16,7 @@ function getInitialExpanded(node, maxDepth, path = '0', depth = 0) {
 
 const COLORS = ['#60a5fa','#a78bfa','#f472b6','#fb923c','#4ade80','#facc15'];
 
-function TreeNode({ node, depth, expanded, onToggle, onNodeClick, path }) {
+function TreeNode({ node, depth, expanded, onToggle, onNodeClickByPath, path }) {
   const id = path;
   const open = expanded.has(id);
   const has = node.children && node.children.length > 0;
@@ -37,7 +38,7 @@ function TreeNode({ node, depth, expanded, onToggle, onNodeClick, path }) {
         )}
         <span
           className="ht-text"
-          onClick={() => onNodeClick && onNodeClick(node.label)}
+          onClick={() => onNodeClickByPath && onNodeClickByPath(path)}
           title={`Click to ask about "${node.label}"`}
         >
           {node.label}
@@ -53,7 +54,7 @@ function TreeNode({ node, depth, expanded, onToggle, onNodeClick, path }) {
               depth={depth + 1}
               expanded={expanded}
               onToggle={onToggle}
-              onNodeClick={onNodeClick}
+              onNodeClickByPath={onNodeClickByPath}
               path={`${id}-${i}`}
             />
           ))}
@@ -64,6 +65,14 @@ function TreeNode({ node, depth, expanded, onToggle, onNodeClick, path }) {
 }
 
 export default function MindMap({ data, onNodeClick, sourceCount }) {
+  const onNodeClickByPath = useCallback(
+    (pathStr) => {
+      if (!onNodeClick) return;
+      const payload = buildMindMapClickPayload(data, pathStr);
+      if (payload) onNodeClick(payload);
+    },
+    [data, onNodeClick]
+  );
   const [expanded, setExpanded] = useState(() => getInitialExpanded(data, 2));
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -157,7 +166,7 @@ export default function MindMap({ data, onNodeClick, sourceCount }) {
             depth={0}
             expanded={expanded}
             onToggle={onToggle}
-            onNodeClick={onNodeClick}
+            onNodeClickByPath={onNodeClickByPath}
             path="0"
           />
         </div>
