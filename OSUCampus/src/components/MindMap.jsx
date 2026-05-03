@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { ChevronRight, ZoomIn, ZoomOut, Maximize2, Network, ChevronsDown, ChevronsUp } from 'lucide-react';
+import { useState, useRef, useCallback, useEffect } from 'react';
+import { ChevronRight, ZoomIn, ZoomOut, Maximize2, Network, ChevronsDown, ChevronsUp, RefreshCw } from 'lucide-react';
 
 // Collect paths up to a depth for initial expansion
 function getInitialExpanded(node, maxDepth, path = '0', depth = 0) {
@@ -63,7 +63,7 @@ function TreeNode({ node, depth, expanded, onToggle, onNodeClick, path }) {
   );
 }
 
-export default function MindMap({ data, onNodeClick, sourceCount }) {
+export default function MindMap({ data, onNodeClick, sourceCount, onRefresh, isRefreshing }) {
   const [expanded, setExpanded] = useState(() => getInitialExpanded(data, 2));
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -130,9 +130,6 @@ export default function MindMap({ data, onNodeClick, sourceCount }) {
 
   const handleCollapseAll = () => setExpanded(new Set(['0']));
 
-  const handleZoomIn = () => setZoom(z => Math.min(z + 0.2, 2.5));
-  const handleZoomOut = () => setZoom(z => Math.max(z - 0.2, 0.25));
-
   return (
     <div className="mm-panel">
       <div className="mm-panel-header">
@@ -140,6 +137,20 @@ export default function MindMap({ data, onNodeClick, sourceCount }) {
         <h3>Mind Map</h3>
         {sourceCount > 0 && (
           <span className="mm-source-badge">Based on {sourceCount} source{sourceCount !== 1 ? 's' : ''}</span>
+        )}
+        {onRefresh && (
+          <div className="mm-panel-actions">
+            <button
+              type="button"
+              className="mm-small-btn mm-refresh-btn"
+              onClick={() => onRefresh()}
+              disabled={isRefreshing}
+              title="Generate a new mind map from your sources"
+            >
+              <RefreshCw size={14} className={isRefreshing ? 'spinning' : ''} style={{ marginRight: '0.35rem', verticalAlign: 'middle' }} />
+              {isRefreshing ? 'Refreshing…' : 'Refresh'}
+            </button>
+          </div>
         )}
       </div>
 

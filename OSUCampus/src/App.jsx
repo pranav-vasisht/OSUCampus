@@ -1,23 +1,20 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import Chat from './components/Chat';
 import SettingsModal from './components/SettingsModal';
 import StudyGuide from './components/StudyGuide';
-import AudioOverview from './components/AudioOverview';
 import Quiz from './components/Quiz';
 import MindMap from './components/MindMap';
 import {
   initGemini,
   generateStudyResponse,
   generateStudyGuide,
-  generateAudioOverview,
   generateQuiz,
   generateMindMap,
 } from './lib/gemini';
 import {
   Settings,
   BookOpen,
-  Headphones,
   ClipboardList,
   Network,
   Loader2,
@@ -29,11 +26,54 @@ import {
 import ChatTree from './components/ChatTree';
 import './index.css';
 
+/** Remove legacy synthetic "Conversation" root so the first user message is the tree trunk. */
+function stripSyntheticRootNodes(raw) {
+  if (!raw || typeof raw !== 'object') return {};
+  let next = { ...raw };
+  const syntheticIds = Object.values(next)
+    .filter((n) => n && n.role === 'root' && !n.parentId)
+    .map((n) => n.id);
+
+  for (const rid of syntheticIds) {
+    const meta = next[rid];
+    if (!meta) continue;
+    const children = meta.children || [];
+    delete next[rid];
+    children.forEach((cid) => {
+      if (next[cid]) {
+        next[cid] = { ...next[cid], parentId: null };
+      }
+    });
+  }
+  return next;
+}
+
+function normalizeChatTree(raw) {
+  if (!raw || typeof raw !== 'object' || Object.keys(raw).length === 0) {
+    return {};
+  }
+  return stripSyntheticRootNodes(raw);
+}
+
+/** Stable key so MindMap remounts when the graph content changes (resets expansion without an effect). */
+function mindMapFingerprint(node) {
+  if (!node) return '';
+  let s = String(node.label ?? '');
+  const kids = node.children || [];
+  for (let i = 0; i < kids.length; i++) {
+    s += '\0' + mindMapFingerprint(kids[i]);
+  }
+  return s.slice(0, 400);
+}
+
 function App() {
   const [documents, setDocuments] = useState([]);
+  const [mindMapRefreshNonce, setMindMapRefreshNonce] = useState(0);
+  const [mindMapRefreshing, setMindMapRefreshing] = useState(false);
   const [nodes, setNodes] = useState(() => {
     const saved = localStorage.getItem('chat_nodes');
-    return saved ? JSON.parse(saved) : {};
+    const parsed = saved ? JSON.parse(saved) : {};
+    return normalizeChatTree(parsed);
   });
   const [activeNodeId, setActiveNodeId] = useState(() => {
     return localStorage.getItem('chat_active_node_id') || null;
@@ -45,8 +85,28 @@ function App() {
   const [activeView, setActiveView] = useState('chat');
   const [isGenerating, setIsGenerating] = useState(false);
   const [cache, setCache] = useState({
-    'study-guide': null, 'audio': null, 'quiz': null, 'mindmap': null,
+    'study-guide': null, quiz: null, mindmap: null,
   });
+
+  /** When sources change, cached Study Guide / Audio / Quiz / Mind Map are stale. */
+  const sourcesSignature = useMemo(
+    () => documents.map((d) => d.id).slice().sort().join('|'),
+    [documents]
+  );
+
+  const mindMapRemountKey = useMemo(() => {
+    const mm = cache['mindmap'];
+    const base = mm ? `${sourcesSignature}:${mindMapFingerprint(mm)}` : sourcesSignature;
+    return `${base}:r${mindMapRefreshNonce}`;
+  }, [sourcesSignature, cache, mindMapRefreshNonce]);
+
+  useEffect(() => {
+    setCache({
+      'study-guide': null,
+      quiz: null,
+      mindmap: null,
+    });
+  }, [sourcesSignature]);
 
   // Resizable panel widths
   const [sidebarWidth, setSidebarWidth] = useState(300);
@@ -56,6 +116,7 @@ function App() {
   // Resize refs
   const resizing = useRef(null); // 'sidebar' | 'split'
   const appRef = useRef(null);
+  const regenInFlightRef = useRef(new Set());
 
   useEffect(() => {
     const storedKey = localStorage.getItem('gemini_api_key');
@@ -73,7 +134,6 @@ function App() {
     if (activeNodeId) localStorage.setItem('chat_active_node_id', activeNodeId);
   }, [nodes, activeNodeId]);
 
-  // Derived active path
   const activePath = React.useMemo(() => {
     const path = [];
     let current = activeNodeId;
@@ -81,7 +141,7 @@ function App() {
       path.push(nodes[current]);
       current = nodes[current].parentId;
     }
-    return path.reverse();
+    return path.reverse().filter((n) => n.role !== 'root');
   }, [nodes, activeNodeId]);
 
   // ─── Resize handlers ─────────────────────────────────────────────
@@ -171,11 +231,13 @@ function App() {
 
   const handleSendMessage = async (text, parentId = activeNodeId, linkedNodeIds = []) => {
     if (!apiKey) { setIsSettingsOpen(true); return; }
-    
+
+    const resolvedParent = parentId ?? activeNodeId ?? null;
+
     const userNodeId = crypto.randomUUID();
     const userNode = {
       id: userNodeId,
-      parentId: parentId || null,
+      parentId: resolvedParent,
       children: [],
       links: linkedNodeIds,
       role: 'user',
@@ -184,8 +246,8 @@ function App() {
 
     setNodes(prev => {
       const next = { ...prev, [userNodeId]: userNode };
-      if (parentId && next[parentId]) {
-        next[parentId] = { ...next[parentId], children: [...next[parentId].children, userNodeId] };
+      if (resolvedParent && next[resolvedParent]) {
+        next[resolvedParent] = { ...next[resolvedParent], children: [...next[resolvedParent].children, userNodeId] };
       }
       return next;
     });
@@ -203,8 +265,9 @@ function App() {
         current = tempNodes[current].parentId;
       }
       path.reverse();
+      const apiPath = path.filter((p) => p.role !== 'root');
 
-      const response = await generateStudyResponse(path, documents, tempNodes);
+      const response = await generateStudyResponse(apiPath, documents, tempNodes);
       
       const modelNodeId = crypto.randomUUID();
       const modelNode = {
@@ -270,8 +333,70 @@ function App() {
     }
   };
 
+  /** Re-run generation when sources changed while a cached panel is open (cache was cleared). */
+  const activeCached =
+    ['study-guide', 'quiz', 'mindmap'].includes(activeView) ? cache[activeView] : null;
+
+  useEffect(() => {
+    const mode = activeView;
+    if (!['study-guide', 'quiz', 'mindmap'].includes(mode)) return;
+    if (documents.length === 0 || !apiKey) return;
+    if (activeCached) return;
+    if (regenInFlightRef.current.has(mode)) return;
+
+    const generators = {
+      'study-guide': generateStudyGuide,
+      quiz: generateQuiz,
+      mindmap: generateMindMap,
+    };
+    const generatorFn = generators[mode];
+    let cancelled = false;
+
+    regenInFlightRef.current.add(mode);
+    (async () => {
+      try {
+        const result = await generatorFn(documents);
+        if (!cancelled) setCache((prev) => ({ ...prev, [mode]: result }));
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) {
+          alert(`Generation failed: ${error.message}`);
+          setActiveView('chat');
+        }
+      } finally {
+        regenInFlightRef.current.delete(mode);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeView, activeCached, documents, apiKey, sourcesSignature]);
+
   const handleBack = () => setActiveView('chat');
   const handleNodeClick = (label) => handleSendMessage(`Define and explain the concept: "${label}"`);
+
+  const handleMindMapRefresh = useCallback(async () => {
+    if (!apiKey) {
+      setIsSettingsOpen(true);
+      return;
+    }
+    if (documents.length === 0) {
+      alert('Please upload at least one source document first.');
+      return;
+    }
+    setMindMapRefreshing(true);
+    try {
+      const result = await generateMindMap(documents);
+      setCache((prev) => ({ ...prev, mindmap: result }));
+      setMindMapRefreshNonce((n) => n + 1);
+    } catch (error) {
+      console.error(error);
+      alert(`Mind map refresh failed: ${error.message}`);
+    } finally {
+      setMindMapRefreshing(false);
+    }
+  }, [apiKey, documents]);
 
   // ─── Render active view ────────────────────────────────────────────
 
@@ -290,22 +415,47 @@ function App() {
       return <Chat nodes={nodes} activePath={activePath} activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} onSendMessage={handleSendMessage} onAddLink={handleAddLink} onRemoveLink={handleRemoveLink} onSetNodeTreeColor={handleSetNodeTreeColor} isLoading={isLoading} />;
     }
 
+    const artifactWait = (message) => (
+      <div className="artifact-panel-loading">
+        <Loader2 size={32} className="spinning" />
+        <p>{message}</p>
+      </div>
+    );
+
     let rightContent = null;
     switch (activeView) {
       case 'study-guide':
-        rightContent = cache['study-guide'] ? <StudyGuide content={cache['study-guide']} onBack={handleBack} /> : null;
-        break;
-      case 'audio':
-        rightContent = cache['audio'] ? <AudioOverview content={cache['audio']} onBack={handleBack} /> : null;
+        rightContent = cache['study-guide']
+          ? <StudyGuide content={cache['study-guide']} onBack={handleBack} />
+          : (documents.length > 0 ? artifactWait('Updating study guide for your sources…') : null);
         break;
       case 'quiz':
-        rightContent = cache['quiz'] ? <Quiz data={cache['quiz']} onBack={handleBack} /> : null;
+        rightContent = cache['quiz']
+          ? <Quiz data={cache['quiz']} onBack={handleBack} />
+          : (documents.length > 0 ? artifactWait('Updating quiz for your sources…') : null);
         break;
       case 'mindmap':
-        rightContent = cache['mindmap'] ? <MindMap data={cache['mindmap']} onNodeClick={handleNodeClick} sourceCount={documents.length} /> : null;
+        rightContent = cache['mindmap']
+          ? (
+            <MindMap
+              key={mindMapRemountKey}
+              data={cache['mindmap']}
+              onNodeClick={handleNodeClick}
+              sourceCount={documents.length}
+              onRefresh={handleMindMapRefresh}
+              isRefreshing={mindMapRefreshing}
+            />
+          )
+          : (documents.length > 0 ? artifactWait('Updating mind map for your sources…') : null);
         break;
       case 'chat-tree':
-        rightContent = <ChatTree nodes={nodes} activePath={activePath} activeNodeId={activeNodeId} onSelectNode={setActiveNodeId} />;
+        rightContent = (
+          <ChatTree
+            nodes={nodes}
+            activeNodeId={activeNodeId}
+            onSelectNode={setActiveNodeId}
+          />
+        );
         break;
       default:
         break;
@@ -352,9 +502,6 @@ function App() {
             </button>
             <button className={`action-btn ${activeView === 'study-guide' ? 'active' : ''} ${cache['study-guide'] ? 'cached' : ''}`} onClick={() => handleViewSwitch('study-guide', generateStudyGuide)} disabled={isGenerating} title="Study Guide">
               <BookOpen size={16} /><span>Study Guide</span>
-            </button>
-            <button className={`action-btn ${activeView === 'audio' ? 'active' : ''} ${cache['audio'] ? 'cached' : ''}`} onClick={() => handleViewSwitch('audio', generateAudioOverview)} disabled={isGenerating} title="Audio Overview">
-              <Headphones size={16} /><span>Audio Overview</span>
             </button>
             <button className={`action-btn ${activeView === 'quiz' ? 'active' : ''} ${cache['quiz'] ? 'cached' : ''}`} onClick={() => handleViewSwitch('quiz', generateQuiz)} disabled={isGenerating} title="Quiz">
               <ClipboardList size={16} /><span>Quiz</span>
