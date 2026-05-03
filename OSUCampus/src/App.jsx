@@ -14,6 +14,7 @@ import {
   generateQuiz,
   generateMindMap,
 } from './lib/gemini';
+import { formatMindMapUserMessage } from './lib/mindMapContext';
 import {
   Settings,
   BookOpen,
@@ -148,8 +149,14 @@ function App() {
     }
   };
 
-  const handleBack = () => setActiveView('chat');
-  const handleNodeClick = (label) => handleSendMessage(`Define and explain the concept: "${label}"`);
+  const handleBack = () => {
+    setActiveView('chat');
+  };
+
+  const handleNodeClick = (payload) => {
+    const text = formatMindMapUserMessage(payload);
+    if (text) handleSendMessage(text);
+  };
 
   // ─── Render active view ────────────────────────────────────────────
 
