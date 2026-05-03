@@ -1,6 +1,16 @@
 import React, { useRef, useState } from 'react';
-import { Upload, FileText, Trash2, Video, Film, Music, FileType, Link, Loader2, Image } from 'lucide-react';
+import { Upload, FileText, Trash2, Video, Film, Music, FileType, Link, Loader2, Image, FolderOpen } from 'lucide-react';
 import { isTextFile, uploadFileToGemini } from '../lib/gemini';
+
+const SUPPORTED_EXTENSIONS = new Set([
+  'txt','md','csv','json','pdf','mp4','webm','mov',
+  'mp3','wav','ogg','m4a','jpg','jpeg','png','gif','webp'
+]);
+
+function isSupportedFile(filename) {
+  const ext = filename.split('.').pop().toLowerCase();
+  return SUPPORTED_EXTENSIONS.has(ext);
+}
 
 // Map file types to icons
 function getDocIcon(doc) {
@@ -30,13 +40,20 @@ function getTypeBadge(doc) {
 
 export default function Sidebar({ documents, onAddDocument, onRemoveDocument, hasApiKey }) {
   const fileInputRef = useRef(null);
+  const folderInputRef = useRef(null);
   const [youtubeUrl, setYoutubeUrl] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
 
   const handleFileUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (!files.length) return;
+    // Filter to only supported file types (important for folder uploads)
+    const files = Array.from(e.target.files).filter(f => isSupportedFile(f.name));
+    if (!files.length) {
+      if (e.target.files.length > 0) {
+        alert('No supported files found. Supported types: ' + [...SUPPORTED_EXTENSIONS].join(', '));
+      }
+      return;
+    }
 
     if (!hasApiKey) {
       alert('Please set your Gemini API Key in settings first.');
@@ -70,19 +87,18 @@ export default function Sidebar({ documents, onAddDocument, onRemoveDocument, ha
           setUploadStatus(`Uploaded ${file.name}`);
         }
       } catch (error) {
-        console.error('Error processing file:', error);
+        console.warn(`Skipped unreadable file ${file.name}:`, error.message);
         setUploadStatus(`Failed: ${file.name}`);
-        alert(`Failed to process ${file.name}: ${error.message}`);
+        // No alert here so it automatically skips without blocking
       }
     }
 
     setIsUploading(false);
     setTimeout(() => setUploadStatus(''), 3000);
 
-    // Reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    // Reset inputs
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (folderInputRef.current) folderInputRef.current.value = '';
   };
 
   const handleAddYoutubeLink = () => {
@@ -121,26 +137,43 @@ export default function Sidebar({ documents, onAddDocument, onRemoveDocument, ha
       </div>
 
       {/* File Upload */}
-      <div
-        className={`upload-area ${isUploading ? 'uploading' : ''}`}
-        onClick={() => !isUploading && fileInputRef.current?.click()}
-      >
-        {isUploading ? (
-          <Loader2 size={24} className="upload-icon spinning" />
-        ) : (
-          <Upload size={24} className="upload-icon" />
-        )}
-        <span>{isUploading ? 'Processing...' : 'Click to upload files'}</span>
-        <small className="upload-hint">.txt .md .csv .pdf .mp4 .mp3 .jpg .png</small>
-        <input
-          type="file"
-          ref={fileInputRef}
-          style={{ display: 'none' }}
-          multiple
-          accept=".txt,.md,.csv,.json,.pdf,.mp4,.webm,.mov,.mp3,.wav,.ogg,.m4a,.jpg,.jpeg,.png,.gif,.webp"
-          onChange={handleFileUpload}
-        />
+      <div className="upload-row">
+        <div
+          className={`upload-area ${isUploading ? 'uploading' : ''}`}
+          onClick={() => !isUploading && fileInputRef.current?.click()}
+        >
+          {isUploading ? (
+            <Loader2 size={20} className="upload-icon spinning" />
+          ) : (
+            <Upload size={20} className="upload-icon" />
+          )}
+          <span>{isUploading ? 'Processing...' : 'Upload Files'}</span>
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            multiple
+            accept=".txt,.md,.csv,.json,.pdf,.mp4,.webm,.mov,.mp3,.wav,.ogg,.m4a,.jpg,.jpeg,.png,.gif,.webp"
+            onChange={handleFileUpload}
+          />
+        </div>
+        <div
+          className={`upload-area ${isUploading ? 'uploading' : ''}`}
+          onClick={() => !isUploading && folderInputRef.current?.click()}
+        >
+          <FolderOpen size={20} className="upload-icon" />
+          <span>Upload Folder</span>
+          <input
+            type="file"
+            ref={folderInputRef}
+            style={{ display: 'none' }}
+            webkitdirectory=""
+            directory=""
+            onChange={handleFileUpload}
+          />
+        </div>
       </div>
+      <small className="upload-hint">.txt .md .csv .pdf .mp4 .mp3 .jpg .png + folders</small>
 
       {/* Upload Status */}
       {uploadStatus && (

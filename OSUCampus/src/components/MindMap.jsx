@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { ChevronRight, ZoomIn, ZoomOut, Maximize2, Network } from 'lucide-react';
+import { ChevronRight, ZoomIn, ZoomOut, Maximize2, Network, ChevronsDown, ChevronsUp } from 'lucide-react';
 import { buildMindMapClickPayload } from '../lib/mindMapContext';
 
 // Collect paths up to a depth for initial expansion
@@ -14,7 +14,7 @@ function getInitialExpanded(node, maxDepth, path = '0', depth = 0) {
   return s;
 }
 
-const COLORS = ['#60a5fa','#a78bfa','#f472b6','#fb923c','#4ade80','#facc15'];
+const COLORS = ['#D73F09','#e8652f','#f59e0b','#f5f5f5','#fb923c','#fbbf24'];
 
 function TreeNode({ node, depth, expanded, onToggle, onNodeClickByPath, path }) {
   const id = path;
@@ -97,7 +97,13 @@ export default function MindMap({ data, onNodeClick, sourceCount }) {
 
   const handleWheel = useCallback((e) => {
     e.preventDefault();
-    setZoom(z => Math.min(Math.max(z + (e.deltaY > 0 ? -0.08 : 0.08), 0.25), 2.5));
+    if (e.ctrlKey || e.metaKey) {
+      // Ctrl/Cmd + scroll = zoom
+      setZoom(z => Math.min(Math.max(z + (e.deltaY > 0 ? -0.08 : 0.08), 0.25), 2.5));
+    } else {
+      // Regular scroll = pan
+      setPan(p => ({ x: p.x - e.deltaX, y: p.y - e.deltaY }));
+    }
   }, []);
 
   const handleMouseDown = (e) => {
@@ -141,10 +147,6 @@ export default function MindMap({ data, onNodeClick, sourceCount }) {
         {sourceCount > 0 && (
           <span className="mm-source-badge">Based on {sourceCount} source{sourceCount !== 1 ? 's' : ''}</span>
         )}
-        <div className="mm-panel-actions">
-          <button onClick={handleExpandAll} className="mm-small-btn">Expand All</button>
-          <button onClick={handleCollapseAll} className="mm-small-btn">Collapse All</button>
-        </div>
       </div>
 
       <div
@@ -173,6 +175,8 @@ export default function MindMap({ data, onNodeClick, sourceCount }) {
       </div>
 
       <div className="mm-zoom-controls">
+        <button onClick={handleExpandAll} title="Expand All"><ChevronsDown size={16} /></button>
+        <button onClick={handleCollapseAll} title="Collapse All"><ChevronsUp size={16} /></button>
         <button onClick={() => setZoom(z => Math.min(z + 0.15, 2.5))} title="Zoom In"><ZoomIn size={16} /></button>
         <button onClick={() => setZoom(z => Math.max(z - 0.15, 0.25))} title="Zoom Out"><ZoomOut size={16} /></button>
         <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} title="Fit to Screen"><Maximize2 size={16} /></button>
