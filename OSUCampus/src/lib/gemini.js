@@ -64,7 +64,7 @@ export const uploadFileToGemini = async (file) => {
     };
   } catch (error) {
     console.error('File upload error:', error);
-    throw new Error(`Failed to upload ${file.name}: ${error.message}`);
+    throw new Error(`Failed to upload ${file.name}: ${error.message}`, { cause: error });
   }
 };
 
@@ -371,7 +371,7 @@ https://graduate.oregonstate.edu/graduate-student-success/graduate-student-resou
     return response.text;
   } catch (error) {
     console.error('Gemini API Error:', error);
-    throw new Error('Failed to generate response: ' + error.message);
+    throw new Error('Failed to generate response: ' + error.message, { cause: error });
   }
 };
 
@@ -458,9 +458,9 @@ Every question MUST have exactly 4 options and one correct answer.`;
 
   try {
     return JSON.parse(cleaned);
-  } catch (e) {
+  } catch (err) {
     console.error('Failed to parse quiz JSON:', cleaned);
-    throw new Error('Failed to parse quiz data. Please try again.');
+    throw new Error('Failed to parse quiz data. Please try again.', { cause: err });
   }
 };
 
@@ -501,8 +501,8 @@ Rules:
 
   try {
     return JSON.parse(cleaned);
-  } catch (e) {
+  } catch (err) {
     console.error('Failed to parse mind map JSON:', cleaned);
-    throw new Error('Failed to parse mind map data. Please try again.');
+    throw new Error('Failed to parse mind map data. Please try again.', { cause: err });
   }
 };

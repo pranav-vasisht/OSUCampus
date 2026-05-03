@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ArrowLeft, ClipboardList, Check, X, RotateCcw } from 'lucide-react';
 
 export default function Quiz({ data, onBack }) {
@@ -6,7 +6,6 @@ export default function Quiz({ data, onBack }) {
   const [selected, setSelected] = useState(null);
   const [revealed, setRevealed] = useState(false);
   const [score, setScore] = useState(0);
-  const [answered, setAnswered] = useState(0);
   const [finished, setFinished] = useState(false);
 
   const questions = data?.questions || [];
@@ -20,7 +19,6 @@ export default function Quiz({ data, onBack }) {
   const handleSubmit = () => {
     if (selected === null) return;
     setRevealed(true);
-    setAnswered(prev => prev + 1);
     if (selected === question.correctIndex) {
       setScore(prev => prev + 1);
     }
@@ -41,7 +39,6 @@ export default function Quiz({ data, onBack }) {
     setSelected(null);
     setRevealed(false);
     setScore(0);
-    setAnswered(0);
     setFinished(false);
   };
 

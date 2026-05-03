@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Upload, FileText, Trash2, Video, Film, Music, FileType, Link, Loader2, Image, FolderOpen } from 'lucide-react';
-import { isTextFile, uploadFileToGemini } from '../lib/gemini';
+import { isTextFile } from '../lib/gemini';
 
 const SUPPORTED_EXTENSIONS = new Set([
   'txt','md','csv','json','pdf','mp4','webm','mov',
@@ -12,7 +12,6 @@ function isSupportedFile(filename) {
   return SUPPORTED_EXTENSIONS.has(ext);
 }
 
-// Map file types to icons
 function getDocIcon(doc) {
   if (doc.sourceType === 'youtube') return <Video size={16} />;
   const ext = doc.name.split('.').pop().toLowerCase();
@@ -25,7 +24,6 @@ function getDocIcon(doc) {
   }
 }
 
-// Map file types to badge labels
 function getTypeBadge(doc) {
   if (doc.sourceType === 'youtube') return 'YouTube';
   const ext = doc.name.split('.').pop().toLowerCase();
@@ -38,7 +36,7 @@ function getTypeBadge(doc) {
   }
 }
 
-export default function Sidebar({ documents, onAddDocument, onRemoveDocument, hasApiKey }) {
+export default function Sidebar({ documents, onPersistSource, onRemoveDocument, hasApiKey }) {
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
   const [youtubeUrl, setYoutubeUrl] = useState('');
@@ -46,7 +44,6 @@ export default function Sidebar({ documents, onAddDocument, onRemoveDocument, ha
   const [uploadStatus, setUploadStatus] = useState('');
 
   const handleFileUpload = async (e) => {
-    // Filter to only supported file types (important for folder uploads)
     const files = Array.from(e.target.files).filter(f => isSupportedFile(f.name));
     if (!files.length) {
       if (e.target.files.length > 0) {
@@ -65,61 +62,61 @@ export default function Sidebar({ documents, onAddDocument, onRemoveDocument, ha
     for (const file of files) {
       try {
         if (isTextFile(file.name)) {
-          // Read text files directly in the browser
           const text = await file.text();
-          onAddDocument({
-            id: Date.now().toString() + Math.random().toString(),
-            name: file.name,
+          setUploadStatus(`Saving ${file.name}…`);
+          await onPersistSource({
             sourceType: 'text',
+            name: file.name,
             content: text,
           });
           setUploadStatus(`Added ${file.name}`);
         } else {
-          // Upload binary files (PDF, MP4, MP3, etc.) to Gemini File API
-          setUploadStatus(`Uploading ${file.name}...`);
-          const geminiFile = await uploadFileToGemini(file);
-          onAddDocument({
-            id: Date.now().toString() + Math.random().toString(),
-            name: file.name,
+          setUploadStatus(`Uploading ${file.name}…`);
+          await onPersistSource({
             sourceType: 'file',
-            geminiFile: geminiFile,
+            name: file.name,
+            file,
           });
           setUploadStatus(`Uploaded ${file.name}`);
         }
       } catch (error) {
         console.warn(`Skipped unreadable file ${file.name}:`, error.message);
         setUploadStatus(`Failed: ${file.name}`);
-        // No alert here so it automatically skips without blocking
       }
     }
 
     setIsUploading(false);
     setTimeout(() => setUploadStatus(''), 3000);
 
-    // Reset inputs
     if (fileInputRef.current) fileInputRef.current.value = '';
     if (folderInputRef.current) folderInputRef.current.value = '';
   };
 
-  const handleAddYoutubeLink = () => {
+  const handleAddYoutubeLink = async () => {
     const url = youtubeUrl.trim();
     if (!url) return;
 
-    // Basic YouTube URL validation
     const ytRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)/;
     if (!ytRegex.test(url)) {
       alert('Please enter a valid YouTube URL.');
       return;
     }
 
-    onAddDocument({
-      id: Date.now().toString() + Math.random().toString(),
-      name: url.length > 40 ? url.substring(0, 40) + '...' : url,
-      sourceType: 'youtube',
-      url: url,
-    });
-
-    setYoutubeUrl('');
+    const displayName = url.length > 40 ? url.substring(0, 40) + '...' : url;
+    try {
+      setUploadStatus('Saving link…');
+      await onPersistSource({
+        sourceType: 'youtube',
+        name: displayName,
+        url,
+      });
+      setUploadStatus('Link added');
+      setYoutubeUrl('');
+    } catch (e) {
+      console.error(e);
+      setUploadStatus(`Failed: ${e.message}`);
+    }
+    setTimeout(() => setUploadStatus(''), 3000);
   };
 
   const handleYoutubeKeyDown = (e) => {
@@ -136,7 +133,6 @@ export default function Sidebar({ documents, onAddDocument, onRemoveDocument, ha
         <p>Upload documents, media, or YouTube links.</p>
       </div>
 
-      {/* File Upload */}
       <div className="upload-row">
         <div
           className={`upload-area ${isUploading ? 'uploading' : ''}`}
@@ -175,12 +171,10 @@ export default function Sidebar({ documents, onAddDocument, onRemoveDocument, ha
       </div>
       <small className="upload-hint">.txt .md .csv .pdf .mp4 .mp3 .jpg .png + folders</small>
 
-      {/* Upload Status */}
       {uploadStatus && (
         <div className="upload-status">{uploadStatus}</div>
       )}
 
-      {/* YouTube URL Input */}
       <div className="youtube-input-area">
         <div className="youtube-label">
           <Video size={14} />
@@ -204,7 +198,6 @@ export default function Sidebar({ documents, onAddDocument, onRemoveDocument, ha
         </div>
       </div>
 
-      {/* Document List */}
       <div className="document-list">
         {documents.length === 0 ? (
           <div className="empty-state">
@@ -219,6 +212,11 @@ export default function Sidebar({ documents, onAddDocument, onRemoveDocument, ha
                 <span className={`type-badge ${getTypeBadge(doc).toLowerCase()}`}>
                   {getTypeBadge(doc)}
                 </span>
+                {doc.sourceType === 'file' && !doc.geminiFile && (
+                  <span className="type-badge pending-gemini" title="Add your Gemini API key in Settings to use this file">
+                    Pending key
+                  </span>
+                )}
               </div>
               <button
                 className="remove-btn"
