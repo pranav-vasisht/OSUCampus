@@ -850,6 +850,25 @@ body {
   cursor: not-allowed;
 }
 
+.message-bubble.user .link-badge {
+  background-color: rgba(75, 85, 99, 0.92);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.message-bubble.user .link-badge-unlink {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.message-bubble.user .link-badge-unlink:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.message-bubble.user .link-badge-unlink:focus-visible {
+  outline-color: #ffffff;
+}
+
 .input-area {
   display: flex;
   gap: 1rem;
