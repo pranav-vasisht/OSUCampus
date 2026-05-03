@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Send, Bot, User, ChevronLeft, ChevronRight, Edit2, Link } from 'lucide-react';
+import { Send, Bot, User, ChevronLeft, ChevronRight, Edit2, Link, X } from 'lucide-react';
+import { NODE_COLORS } from '../lib/nodeColors';
 
-export default function Chat({ nodes, activePath, activeNodeId, setActiveNodeId, onSendMessage, onAddLink, isLoading }) {
+export default function Chat({ nodes, activePath, activeNodeId, setActiveNodeId, onSendMessage, onAddLink, onRemoveLink, onSetNodeTreeColor, isLoading }) {
   const [input, setInput] = useState('');
   const [replyParentId, setReplyParentId] = useState(null);
   const [linkingSourceId, setLinkingSourceId] = useState(null);
@@ -31,10 +32,6 @@ export default function Chat({ nodes, activePath, activeNodeId, setActiveNodeId,
       curr = nodes[curr.children[curr.children.length - 1]];
     }
     return curr ? curr.id : nodeId;
-  };
-
-  const handleTreeSelect = (nodeId) => {
-    setActiveNodeId(nodeId);
   };
 
   const handleBranchChange = (nodeId, direction) => {
@@ -67,14 +64,15 @@ export default function Chat({ nodes, activePath, activeNodeId, setActiveNodeId,
             <p>Upload some sources in the sidebar and start asking questions.</p>
           </div>
         ) : (
-          activePath.map((msg, index) => {
+          activePath.map((msg) => {
             const parent = msg.parentId ? nodes[msg.parentId] : null;
             const hasSiblings = parent && parent.children && parent.children.length > 1;
             const siblingIndex = parent ? parent.children.indexOf(msg.id) : 0;
             const totalSiblings = parent ? parent.children.length : 1;
+            const tag = msg.treeColor;
 
             return (
-              <div key={msg.id} className={`message-bubble ${msg.role}`}>
+              <div key={msg.id} className={`message-bubble ${msg.role}${tag ? ` message-tag-${tag}` : ''}`}>
                 <div className="message-avatar">
                   {msg.role === 'model' ? <Bot size={20} /> : <User size={20} />}
                 </div>
@@ -89,7 +87,22 @@ export default function Chat({ nodes, activePath, activeNodeId, setActiveNodeId,
                     <div className="message-links">
                       {msg.links.map(linkId => (
                         <span key={linkId} className="link-badge">
-                          Reference: {nodes[linkId] ? nodes[linkId].text.substring(0, 20) + '...' : linkId}
+                          <span className="link-badge-label">
+                            Reference: {nodes[linkId] ? nodes[linkId].text.substring(0, 20) + '...' : linkId}
+                          </span>
+                          <button
+                            type="button"
+                            className="link-badge-unlink"
+                            title="Remove reference"
+                            disabled={isLoading}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRemoveLink(msg.id, linkId);
+                            }}
+                            aria-label="Remove reference link"
+                          >
+                            <X size={12} strokeWidth={2.5} />
+                          </button>
                         </span>
                       ))}
                     </div>
@@ -114,6 +127,20 @@ export default function Chat({ nodes, activePath, activeNodeId, setActiveNodeId,
                       </div>
                     )}
                     <div className="message-actions-right">
+                      <div className="message-node-colors" role="group" aria-label="Color for tree">
+                        {NODE_COLORS.map((opt) => (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            className={`message-color-swatch swatch-${opt.id} ${tag === opt.id ? 'selected' : ''}`}
+                            title={`${opt.label} in tree${tag === opt.id ? ' — click to clear' : ''}`}
+                            aria-label={tag === opt.id ? `Clear ${opt.label} tag` : `Tag node ${opt.label}`}
+                            aria-pressed={tag === opt.id}
+                            disabled={isLoading}
+                            onClick={() => onSetNodeTreeColor(msg.id, tag === opt.id ? null : opt.id)}
+                          />
+                        ))}
+                      </div>
                       <button 
                         className="branch-btn"
                         onClick={() => {

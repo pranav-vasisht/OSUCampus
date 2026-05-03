@@ -154,6 +154,21 @@ function App() {
     });
   };
 
+  const handleSetNodeTreeColor = (nodeId, color) => {
+    setNodes((prev) => {
+      if (!prev[nodeId]) return prev;
+      const next = { ...prev };
+      const cur = { ...next[nodeId] };
+      if (color == null) {
+        delete cur.treeColor;
+      } else {
+        cur.treeColor = color;
+      }
+      next[nodeId] = cur;
+      return next;
+    });
+  };
+
   const handleSendMessage = async (text, parentId = activeNodeId, linkedNodeIds = []) => {
     if (!apiKey) { setIsSettingsOpen(true); return; }
     
@@ -272,7 +287,7 @@ function App() {
     }
 
     if (activeView === 'chat') {
-      return <Chat nodes={nodes} activePath={activePath} activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} onSendMessage={handleSendMessage} onAddLink={handleAddLink} onRemoveLink={handleRemoveLink} isLoading={isLoading} />;
+      return <Chat nodes={nodes} activePath={activePath} activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} onSendMessage={handleSendMessage} onAddLink={handleAddLink} onRemoveLink={handleRemoveLink} onSetNodeTreeColor={handleSetNodeTreeColor} isLoading={isLoading} />;
     }
 
     let rightContent = null;
@@ -297,13 +312,13 @@ function App() {
     }
 
     if (!rightContent) {
-      return <Chat nodes={nodes} activePath={activePath} activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} onSendMessage={handleSendMessage} onAddLink={handleAddLink} onRemoveLink={handleRemoveLink} isLoading={isLoading} />;
+      return <Chat nodes={nodes} activePath={activePath} activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} onSendMessage={handleSendMessage} onAddLink={handleAddLink} onRemoveLink={handleRemoveLink} onSetNodeTreeColor={handleSetNodeTreeColor} isLoading={isLoading} />;
     }
 
     return (
       <div className="split-view">
         <div className="split-left" style={{ width: splitChatWidth }}>
-          <Chat nodes={nodes} activePath={activePath} activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} onSendMessage={handleSendMessage} onAddLink={handleAddLink} onRemoveLink={handleRemoveLink} isLoading={isLoading} />
+          <Chat nodes={nodes} activePath={activePath} activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} onSendMessage={handleSendMessage} onAddLink={handleAddLink} onRemoveLink={handleRemoveLink} onSetNodeTreeColor={handleSetNodeTreeColor} isLoading={isLoading} />
         </div>
         <div className="resize-handle" onMouseDown={handleResizeStart('split')} />
         <div className="split-right">
