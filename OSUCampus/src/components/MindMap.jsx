@@ -1,6 +1,23 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { ChevronRight, ZoomIn, ZoomOut, Maximize2, Network, ChevronsDown, ChevronsUp } from 'lucide-react';
-import { buildMindMapClickPayload } from '../lib/mindMapContext';
+
+function mindMapPathToUserMessage(root, pathStr) {
+  const parts = pathStr.split('-').map(Number);
+  if (parts.some((p) => Number.isNaN(p))) return '';
+  let node = root;
+  const labels = [node.label];
+  for (let i = 1; i < parts.length; i++) {
+    const idx = parts[i];
+    if (!node.children || !node.children[idx]) return '';
+    node = node.children[idx];
+    labels.push(node.label);
+  }
+  const trail = labels.join(' → ');
+  if (node.prompt) {
+    return `Mind map topic: ${trail}\n\n${node.prompt}`;
+  }
+  return `Tell me more about "${node.label}" in the mind map (${trail}).`;
+}
 
 // Collect paths up to a depth for initial expansion
 function getInitialExpanded(node, maxDepth, path = '0', depth = 0) {
@@ -68,8 +85,8 @@ export default function MindMap({ data, onNodeClick, sourceCount }) {
   const onNodeClickByPath = useCallback(
     (pathStr) => {
       if (!onNodeClick) return;
-      const payload = buildMindMapClickPayload(data, pathStr);
-      if (payload) onNodeClick(payload);
+      const text = mindMapPathToUserMessage(data, pathStr);
+      if (text) onNodeClick(text);
     },
     [data, onNodeClick]
   );
