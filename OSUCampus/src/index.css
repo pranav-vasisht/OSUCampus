@@ -539,6 +539,128 @@ body {
   letter-spacing: 0.05em;
 }
 
+.chat-tree-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text-secondary);
+  opacity: 0.9;
+}
+
+.chat-tree-hint strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.chat-tree-empty {
+  padding: 1.5rem 0;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  max-width: 320px;
+}
+
+.chat-tree-empty p {
+  margin: 0 0 0.5rem;
+}
+
+.chat-tree-empty-sub {
+  font-size: 0.8rem;
+  opacity: 0.85;
+}
+
+.tree-forest {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.tree-trunk-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+  max-width: 100%;
+}
+
+.tree-trunk-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--accent-color, #D73F09);
+}
+
+.tree-trunk-card {
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  width: 100%;
+  max-width: min(100%, 420px);
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary, #f5f5f5);
+  font-size: 0.82rem;
+  line-height: 1.35;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+.tree-trunk-card.trunk-user {
+  border-color: rgba(215, 63, 9, 0.45);
+  background: rgba(215, 63, 9, 0.12);
+}
+
+.tree-trunk-card.trunk-model {
+  border-color: rgba(96, 165, 250, 0.35);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.tree-trunk-card:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.tree-trunk-card.in-path {
+  box-shadow: 0 0 0 2px var(--bg-secondary), 0 0 0 4px var(--accent-color);
+}
+
+.tree-trunk-card.is-active-node {
+  box-shadow: 0 0 0 2px var(--bg-secondary), 0 0 0 4px #ffffff;
+}
+
+.tree-node-item.is-trunk-row {
+  min-height: auto;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+
+.artifact-panel-loading {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  color: var(--text-secondary);
+  text-align: center;
+  min-height: 200px;
+}
+
+.artifact-panel-loading p {
+  margin: 0;
+  font-size: 0.95rem;
+  max-width: 280px;
+  line-height: 1.4;
+}
+
 .chat-tree-scroll {
   display: flex;
   flex-direction: column;
@@ -564,7 +686,26 @@ body {
 .tree-node-item {
   display: flex;
   align-items: center;
-  height: 24px;
+  gap: 0.5rem;
+  min-height: 28px;
+}
+
+.tree-node-label {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  line-height: 1.25;
+  flex: 1;
+  min-width: 0;
+}
+
+.tree-node-label:hover {
+  color: var(--text-primary, #fff);
+}
+
+.tree-node-label.in-path {
+  color: var(--text-primary, #fff);
+  font-weight: 500;
 }
 
 .tree-dot {
@@ -629,14 +770,40 @@ body {
   opacity: 0.95;
 }
 
+.tree-trunk-card.tree-color-red {
+  border-left: 3px solid #ef4444;
+}
+
+.tree-trunk-card.tree-color-yellow {
+  border-left: 3px solid #eab308;
+}
+
+.tree-trunk-card.tree-color-green {
+  border-left: 3px solid #22c55e;
+}
+
+.tree-trunk-card.tree-color-blue {
+  border-left: 3px solid #3b82f6;
+}
+
+.tree-trunk-card.tree-color-purple {
+  border-left: 3px solid #a855f7;
+}
+
 .tree-children {
   display: flex;
   flex-direction: column;
-  margin-left: 5px;
-  padding-left: 12px;
-  border-left: 2px solid rgba(255, 255, 255, 0.1);
-  margin-top: 2px;
-  margin-bottom: 2px;
+  margin-left: 0.35rem;
+  padding-left: 1.1rem;
+  border-left: 2px solid rgba(255, 255, 255, 0.14);
+  margin-top: 0.35rem;
+  margin-bottom: 0.15rem;
+}
+
+.tree-node-wrapper.is-trunk-node > .tree-children {
+  margin-left: 0.5rem;
+  padding-left: 1.25rem;
+  margin-top: 0.65rem;
 }
 
 .message-actions {
@@ -1164,7 +1331,7 @@ body {
   border-radius: 3px;
 }
 
-/* ─── Prose Styling (Study Guide & Audio) ─────────────── */
+/* ─── Prose Styling (Study Guide) ─────────────── */
 
 .prose h1,
 .prose h2,
@@ -1244,81 +1411,6 @@ body {
 .generating-overlay h3 {
   color: var(--text-primary);
   font-size: 1.25rem;
-}
-
-/* ─── Audio Controls ──────────────────────────────────── */
-
-.audio-controls {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 2rem;
-  border-bottom: 1px solid var(--border-color);
-  gap: 1rem;
-}
-
-.audio-visualizer {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 40px;
-}
-
-.audio-visualizer .bar {
-  width: 4px;
-  height: 8px;
-  background-color: var(--accent-color);
-  border-radius: 2px;
-  transition: height 0.2s;
-}
-
-.audio-visualizer .bar.active {
-  animation: audioBar 0.8s ease-in-out infinite alternate;
-}
-
-@keyframes audioBar {
-  0% {
-    height: 8px;
-    opacity: 0.4;
-  }
-
-  100% {
-    height: 36px;
-    opacity: 1;
-  }
-}
-
-.audio-buttons {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.audio-btn {
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.audio-btn.primary {
-  background-color: var(--accent-color);
-  border-color: var(--accent-color);
-}
-
-.audio-btn:hover {
-  transform: scale(1.05);
-}
-
-.audio-hint {
-  font-size: 0.75rem;
-  color: var(--text-secondary);
 }
 
 /* ─── Quiz ────────────────────────────────────────────── */
@@ -1587,6 +1679,16 @@ body {
 .mm-small-btn:hover {
   color: var(--text-primary);
   border-color: var(--accent-color);
+}
+
+.mm-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+}
+
+.mm-refresh-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 /* ─── Canvas ──────────────────────────────────────────── */

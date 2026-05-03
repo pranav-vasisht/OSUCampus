@@ -424,28 +424,6 @@ Make it thorough, clear, and optimized for exam preparation.`;
 };
 
 /**
- * Generate a podcast-style script between two hosts discussing the source material.
- */
-export const generateAudioOverview = async (documents) => {
-  const system = `You are a podcast scriptwriter. Generate an engaging audio overview script as a conversation between two hosts — Alex and Sam — discussing the provided source materials.
-The conversation should:
-- Start with a brief, energetic intro
-- Cover all major topics from the sources
-- Use a natural, conversational tone (not overly academic)
-- Include moments of insight, questions between hosts, and "aha" moments
-- End with a concise summary of key takeaways
-
-Format the output as a script with clear speaker labels:
-**Alex:** ...
-**Sam:** ...
-
-Make it approximately 3-5 minutes of spoken content (about 600-1000 words).`;
-
-  return generateFromSources(documents, system,
-    'Create an engaging podcast-style audio overview script discussing all the key material from the provided sources.');
-};
-
-/**
  * Generate an interactive quiz as structured JSON.
  */
 export const generateQuiz = async (documents) => {
