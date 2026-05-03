@@ -24,12 +24,20 @@ import {
   MessageSquare,
   PanelLeftClose,
   PanelLeftOpen,
+  GitBranch,
 } from 'lucide-react';
+import ChatTree from './components/ChatTree';
 import './index.css';
 
 function App() {
   const [documents, setDocuments] = useState([]);
-  const [messages, setMessages] = useState([]);
+  const [nodes, setNodes] = useState(() => {
+    const saved = localStorage.getItem('chat_nodes');
+    return saved ? JSON.parse(saved) : {};
+  });
+  const [activeNodeId, setActiveNodeId] = useState(() => {
+    return localStorage.getItem('chat_active_node_id') || null;
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [apiKey, setApiKey] = useState('');
@@ -58,6 +66,23 @@ function App() {
       setIsSettingsOpen(true);
     }
   }, []);
+
+  // Save tree to localStorage
+  useEffect(() => {
+    localStorage.setItem('chat_nodes', JSON.stringify(nodes));
+    if (activeNodeId) localStorage.setItem('chat_active_node_id', activeNodeId);
+  }, [nodes, activeNodeId]);
+
+  // Derived active path
+  const activePath = React.useMemo(() => {
+    const path = [];
+    let current = activeNodeId;
+    while (current && nodes[current]) {
+      path.push(nodes[current]);
+      current = nodes[current].parentId;
+    }
+    return path.reverse();
+  }, [nodes, activeNodeId]);
 
   // ─── Resize handlers ─────────────────────────────────────────────
 
@@ -107,20 +132,102 @@ function App() {
   const handleAddDocument = (doc) => setDocuments(prev => [...prev, doc]);
   const handleRemoveDocument = (id) => setDocuments(prev => prev.filter(d => d.id !== id));
 
-  const handleSendMessage = async (text) => {
+  const handleAddLink = (targetId, sourceId) => {
+    setNodes(prev => {
+      const next = { ...prev };
+      if (!next[targetId] || !next[sourceId]) return next;
+      const existingLinks = next[targetId].links || [];
+      if (!existingLinks.includes(sourceId) && targetId !== sourceId) {
+        next[targetId] = { ...next[targetId], links: [...existingLinks, sourceId] };
+      }
+      return next;
+    });
+  };
+
+  const handleRemoveLink = (targetId, sourceId) => {
+    setNodes(prev => {
+      const next = { ...prev };
+      if (!next[targetId]) return next;
+      const existingLinks = next[targetId].links || [];
+      next[targetId] = { ...next[targetId], links: existingLinks.filter(id => id !== sourceId) };
+      return next;
+    });
+  };
+
+  const handleSendMessage = async (text, parentId = activeNodeId, linkedNodeIds = []) => {
     if (!apiKey) { setIsSettingsOpen(true); return; }
-    const newUserMsg = { role: 'user', text };
-    setMessages(prev => [...prev, newUserMsg]);
+    
+    const userNodeId = crypto.randomUUID();
+    const userNode = {
+      id: userNodeId,
+      parentId: parentId || null,
+      children: [],
+      links: linkedNodeIds,
+      role: 'user',
+      text
+    };
+
+    setNodes(prev => {
+      const next = { ...prev, [userNodeId]: userNode };
+      if (parentId && next[parentId]) {
+        next[parentId] = { ...next[parentId], children: [...next[parentId].children, userNodeId] };
+      }
+      return next;
+    });
+    
+    setActiveNodeId(userNodeId);
     setIsLoading(true);
+
     try {
-      const response = await generateStudyResponse(text, documents, messages);
-      setMessages(prev => [...prev, { role: 'model', text: response }]);
+      // Manually construct the path to pass to the API immediately since state updates are async
+      const path = [];
+      let current = userNodeId;
+      const tempNodes = { ...nodes, [userNodeId]: userNode };
+      while (current && tempNodes[current]) {
+        path.push(tempNodes[current]);
+        current = tempNodes[current].parentId;
+      }
+      path.reverse();
+
+      const response = await generateStudyResponse(path, documents, tempNodes);
+      
+      const modelNodeId = crypto.randomUUID();
+      const modelNode = {
+        id: modelNodeId,
+        parentId: userNodeId,
+        children: [],
+        links: [],
+        role: 'model',
+        text: response
+      };
+      
+      setNodes(prev => {
+        const next = { ...prev, [modelNodeId]: modelNode };
+        if (next[userNodeId]) {
+          next[userNodeId] = { ...next[userNodeId], children: [...next[userNodeId].children, modelNodeId] };
+        }
+        return next;
+      });
+      setActiveNodeId(modelNodeId);
     } catch (error) {
       console.error(error);
-      setMessages(prev => [...prev, {
+      const errorNodeId = crypto.randomUUID();
+      const errorNode = {
+        id: errorNodeId,
+        parentId: userNodeId,
+        children: [],
+        links: [],
         role: 'model',
         text: `**Error:** ${error.message}\n\nPlease check your API key in the settings.`
-      }]);
+      };
+      setNodes(prev => {
+        const next = { ...prev, [errorNodeId]: errorNode };
+        if (next[userNodeId]) {
+          next[userNodeId] = { ...next[userNodeId], children: [...next[userNodeId].children, errorNodeId] };
+        }
+        return next;
+      });
+      setActiveNodeId(errorNodeId);
     } finally {
       setIsLoading(false);
     }
@@ -165,7 +272,7 @@ function App() {
     }
 
     if (activeView === 'chat') {
-      return <Chat messages={messages} onSendMessage={handleSendMessage} isLoading={isLoading} />;
+      return <Chat nodes={nodes} activePath={activePath} activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} onSendMessage={handleSendMessage} onAddLink={handleAddLink} onRemoveLink={handleRemoveLink} isLoading={isLoading} />;
     }
 
     let rightContent = null;
@@ -182,18 +289,21 @@ function App() {
       case 'mindmap':
         rightContent = cache['mindmap'] ? <MindMap data={cache['mindmap']} onNodeClick={handleNodeClick} sourceCount={documents.length} /> : null;
         break;
+      case 'chat-tree':
+        rightContent = <ChatTree nodes={nodes} activePath={activePath} activeNodeId={activeNodeId} onSelectNode={setActiveNodeId} />;
+        break;
       default:
         break;
     }
 
     if (!rightContent) {
-      return <Chat messages={messages} onSendMessage={handleSendMessage} isLoading={isLoading} />;
+      return <Chat nodes={nodes} activePath={activePath} activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} onSendMessage={handleSendMessage} onAddLink={handleAddLink} onRemoveLink={handleRemoveLink} isLoading={isLoading} />;
     }
 
     return (
       <div className="split-view">
         <div className="split-left" style={{ width: splitChatWidth }}>
-          <Chat messages={messages} onSendMessage={handleSendMessage} isLoading={isLoading} />
+          <Chat nodes={nodes} activePath={activePath} activeNodeId={activeNodeId} setActiveNodeId={setActiveNodeId} onSendMessage={handleSendMessage} onAddLink={handleAddLink} onRemoveLink={handleRemoveLink} isLoading={isLoading} />
         </div>
         <div className="resize-handle" onMouseDown={handleResizeStart('split')} />
         <div className="split-right">
@@ -236,6 +346,9 @@ function App() {
             </button>
             <button className={`action-btn ${activeView === 'mindmap' ? 'active' : ''} ${cache['mindmap'] ? 'cached' : ''}`} onClick={() => handleViewSwitch('mindmap', generateMindMap)} disabled={isGenerating} title="Mind Map">
               <Network size={16} /><span>Mind Map</span>
+            </button>
+            <button className={`action-btn ${activeView === 'chat-tree' ? 'active' : ''}`} onClick={() => setActiveView(activeView === 'chat-tree' ? 'chat' : 'chat-tree')} title="Chat Tree">
+              <GitBranch size={16} /><span>Chat Tree</span>
             </button>
 
             <button
