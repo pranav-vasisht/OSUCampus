@@ -25,7 +25,7 @@ export default function Chat({ messages, onSendMessage, isLoading }) {
   return (
     <div className="chat-container">
       <div className="chat-header">
-        <h1>Study Agent</h1>
+        <h1>Campus</h1>
         <p>Ask questions based on your uploaded sources.</p>
       </div>
 
@@ -33,7 +33,7 @@ export default function Chat({ messages, onSendMessage, isLoading }) {
         {messages.length === 0 ? (
           <div className="welcome-message">
             <Bot size={48} className="welcome-icon" />
-            <h2>Welcome to your Study Agent!</h2>
+            <h2>Welcome to Campus!</h2>
             <p>Upload some sources in the sidebar and start asking questions.</p>
           </div>
         ) : (
