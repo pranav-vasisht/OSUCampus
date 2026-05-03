@@ -1,5 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { ArrowLeft, BookOpen } from 'lucide-react';
 
 export default function StudyGuide({ content, onBack }) {
@@ -16,7 +18,9 @@ export default function StudyGuide({ content, onBack }) {
         </div>
       </div>
       <div className="output-body prose">
-        <ReactMarkdown>{content}</ReactMarkdown>
+        <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+          {content}
+        </ReactMarkdown>
       </div>
     </div>
   );

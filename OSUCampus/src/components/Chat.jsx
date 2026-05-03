@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { Send, Bot, User, ChevronLeft, ChevronRight, Edit2, Link, X } from 'lucide-react';
 import { NODE_COLORS } from '../lib/nodeColors';
 
@@ -78,7 +80,9 @@ export default function Chat({ nodes, activePath, activeNodeId, setActiveNodeId,
                 </div>
                 <div className="message-content">
                   {msg.role === 'model' ? (
-                    <ReactMarkdown>{msg.text}</ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                      {msg.text}
+                    </ReactMarkdown>
                   ) : (
                     <p>{msg.text}</p>
                   )}
