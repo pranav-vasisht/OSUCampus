@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useRef, useMemo, useState, useEffect } from 'react';
 
 function curveBetween(x1, y1, x2, y2) {
   const dx = Math.abs(x2 - x1);
@@ -21,15 +21,44 @@ const TreeNode = ({ nodeId, nodes, activePathIds, activeNodeId, onSelect, depth 
   const shortLabel =
     snippet.length > 56 ? `${snippet.slice(0, 56)}…` : snippet;
 
+  const promptDotClass = isUser ? 'tree-dot-prompt' : '';
+  const trunkPromptDotClass = isTrunk && isUser ? 'tree-dot-prompt--trunk' : '';
+
+  const promptRow = (
+    <>
+      <div
+        className={`tree-dot ${promptDotClass} ${trunkPromptDotClass} ${inActivePath ? 'in-path' : ''} ${isActiveNode ? 'is-active-node' : ''} ${isUser ? 'user-dot' : 'model-dot'}${colorClass}`}
+        onClick={() => onSelect(nodeId)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onSelect(nodeId);
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        title={tooltip}
+        data-node-id={nodeId}
+      />
+      <span
+        className={`tree-node-label ${inActivePath ? 'in-path' : ''} ${isActiveNode ? 'is-active-node' : ''}`}
+        onClick={() => onSelect(nodeId)}
+        title={tooltip}
+      >
+        {shortLabel || '(empty)'}
+      </span>
+    </>
+  );
+
   return (
     <div className={`tree-node-wrapper ${isTrunk ? 'is-trunk-node' : ''}`}>
-      <div className={`tree-node-item ${isTrunk ? 'is-trunk-row' : ''}`}>
-        {isTrunk ? (
+      <div className={`tree-node-item ${isTrunk && !isUser ? 'is-trunk-row' : ''}`}>
+        {isTrunk && !isUser ? (
           <div className="tree-trunk-stack">
             <span className="tree-trunk-badge">Initial prompt</span>
             <button
               type="button"
-              className={`tree-trunk-card ${inActivePath ? 'in-path' : ''} ${isActiveNode ? 'is-active-node' : ''} ${isUser ? 'trunk-user' : 'trunk-model'}${colorClass}`}
+              className={`tree-trunk-card ${inActivePath ? 'in-path' : ''} ${isActiveNode ? 'is-active-node' : ''} trunk-model${colorClass}`}
               onClick={() => onSelect(nodeId)}
               title={tooltip}
               data-node-id={nodeId}
@@ -38,33 +67,11 @@ const TreeNode = ({ nodeId, nodes, activePathIds, activeNodeId, onSelect, depth 
             </button>
           </div>
         ) : (
-          <>
-            <div
-              className={`tree-dot ${inActivePath ? 'in-path' : ''} ${isActiveNode ? 'is-active-node' : ''} ${isUser ? 'user-dot' : 'model-dot'}${colorClass}`}
-              onClick={() => onSelect(nodeId)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  onSelect(nodeId);
-                }
-              }}
-              role="button"
-              tabIndex={0}
-              title={tooltip}
-              data-node-id={nodeId}
-            />
-            <span
-              className={`tree-node-label ${inActivePath ? 'in-path' : ''} ${isActiveNode ? 'is-active-node' : ''}`}
-              onClick={() => onSelect(nodeId)}
-              title={tooltip}
-            >
-              {shortLabel || '(empty)'}
-            </span>
-          </>
+          promptRow
         )}
       </div>
       {node.children && node.children.length > 0 && (
-        <div className="tree-children">
+        <div className="tree-children" data-tree-depth={depth + 1}>
           {node.children.map((childId) => (
             <TreeNode
               key={childId}
@@ -84,7 +91,7 @@ const TreeNode = ({ nodeId, nodes, activePathIds, activeNodeId, onSelect, depth 
 
 export default function ChatTree({ nodes, activeNodeId, onSelectNode }) {
   const containerRef = useRef(null);
-  const [svgPaths, setSvgPaths] = useState([]);
+  const [linkPaths, setLinkPaths] = useState([]);
 
   const activePathIds = useMemo(() => {
     const ids = new Set();
@@ -105,14 +112,12 @@ export default function ChatTree({ nodes, activeNodeId, onSelectNode }) {
   );
 
   useEffect(() => {
-    const calculatePaths = () => {
-      if (!containerRef.current) return;
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const scrollLeft = containerRef.current.scrollLeft;
-      const scrollTop = containerRef.current.scrollTop;
-
-      const linkPaths = [];
-      const branchPaths = [];
+    const calculateLinks = () => {
+      const container = containerRef.current;
+      if (!container) return;
+      const containerRect = container.getBoundingClientRect();
+      const scrollLeft = container.scrollLeft;
+      const scrollTop = container.scrollTop;
 
       const anchor = (el) => {
         const r = el.getBoundingClientRect();
@@ -122,49 +127,41 @@ export default function ChatTree({ nodes, activeNodeId, onSelectNode }) {
         };
       };
 
+      const paths = [];
       Object.values(nodes).forEach((node) => {
-        if (node.links && node.links.length > 0) {
-          const targetEl = containerRef.current.querySelector(`[data-node-id="${node.id}"]`);
-          if (!targetEl) return;
-          const t = anchor(targetEl);
-
-          node.links.forEach((linkId) => {
-            const sourceEl = containerRef.current.querySelector(`[data-node-id="${linkId}"]`);
-            if (!sourceEl) return;
-            const s = anchor(sourceEl);
-            linkPaths.push({
-              id: `link-${node.id}-${linkId}`,
-              d: curveBetween(s.x, s.y, t.x, t.y),
-              dashed: true,
-            });
+        if (!node.links || node.links.length === 0) return;
+        const targetEl = container.querySelector(`[data-node-id="${node.id}"]`);
+        if (!targetEl) return;
+        const t = anchor(targetEl);
+        node.links.forEach((linkId) => {
+          const sourceEl = container.querySelector(`[data-node-id="${linkId}"]`);
+          if (!sourceEl) return;
+          const s = anchor(sourceEl);
+          paths.push({
+            id: `link-${node.id}-${linkId}`,
+            d: curveBetween(s.x, s.y, t.x, t.y),
           });
-        }
-      });
-
-      Object.values(nodes).forEach((node) => {
-        if (!node.parentId || !nodes[node.parentId]) return;
-        const parentEl = containerRef.current.querySelector(`[data-node-id="${node.parentId}"]`);
-        const childEl = containerRef.current.querySelector(`[data-node-id="${node.id}"]`);
-        if (!parentEl || !childEl) return;
-        const p = anchor(parentEl);
-        const c = anchor(childEl);
-        branchPaths.push({
-          id: `branch-${node.parentId}-${node.id}`,
-          d: curveBetween(p.x, p.y, c.x, c.y),
-          dashed: false,
         });
       });
-
-      setSvgPaths([...branchPaths, ...linkPaths]);
+      setLinkPaths(paths);
+      const svg = container.querySelector('.chat-tree-svg');
+      if (svg) {
+        const w = Math.max(container.scrollWidth, container.clientWidth);
+        const h = Math.max(container.scrollHeight, container.clientHeight);
+        svg.setAttribute('width', String(w));
+        svg.setAttribute('height', String(h));
+      }
     };
 
-    calculatePaths();
-    const timer = setTimeout(calculatePaths, 50);
-    window.addEventListener('resize', calculatePaths);
-
+    calculateLinks();
+    const timer = setTimeout(calculateLinks, 50);
+    window.addEventListener('resize', calculateLinks);
+    const container = containerRef.current;
+    container?.addEventListener('scroll', calculateLinks, { passive: true });
     return () => {
       clearTimeout(timer);
-      window.removeEventListener('resize', calculatePaths);
+      window.removeEventListener('resize', calculateLinks);
+      container?.removeEventListener('scroll', calculateLinks);
     };
   }, [nodes]);
 
@@ -205,17 +202,17 @@ export default function ChatTree({ nodes, activeNodeId, onSelectNode }) {
           The <strong>initial prompt</strong> is the parent. Select any node, then reply or use <strong>Branch</strong> to grow outward.
         </p>
       </div>
-      <div className="chat-tree-scroll" ref={containerRef}>
-        <svg className="chat-tree-svg" style={{ width: '100%', height: '100%' }}>
-          {svgPaths.map((pathItem) => (
+      <div className="chat-tree-scroll chat-tree-scroll--vertical-only" ref={containerRef}>
+        <svg className="chat-tree-svg" aria-hidden="true">
+          {linkPaths.map((p) => (
             <path
-              key={pathItem.id}
-              d={pathItem.d}
+              key={p.id}
+              d={p.d}
               fill="none"
-              stroke={pathItem.dashed ? '#3b82f6' : 'rgba(255,255,255,0.28)'}
-              strokeWidth={pathItem.dashed ? 2 : 1.75}
-              strokeDasharray={pathItem.dashed ? '4 4' : '0'}
-              className={pathItem.dashed ? 'chat-tree-link-path' : 'chat-tree-branch-path'}
+              stroke="#3b82f6"
+              strokeWidth="2"
+              strokeDasharray="4 4"
+              className="chat-tree-link-path"
             />
           ))}
         </svg>
