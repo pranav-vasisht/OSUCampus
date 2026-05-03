@@ -103,7 +103,7 @@ function buildSourceParts(documents) {
   return parts;
 }
 
-export const generateStudyResponse = async (userPrompt, documents, history = []) => {
+export const generateStudyResponse = async (path, documents, nodes) => {
   if (!client) {
     throw new Error('Please enter your Gemini API Key in the settings first.');
   }
@@ -328,16 +328,32 @@ https://graduate.oregonstate.edu/graduate-student-success/graduate-student-resou
       });
     }
 
-    // Format history for the API
-    const formattedHistory = history.map((msg) => ({
-      role: msg.role === 'user' ? 'user' : 'model',
-      parts: [{ text: msg.text }],
-    }));
+    if (path.length === 0) return "";
 
-    // The first user message includes the source materials + the actual question
+    const userPromptNode = path[path.length - 1];
+    const historyNodes = path.slice(0, -1);
+
+    const formattedHistory = historyNodes.map((msg) => {
+      let resolvedContent = msg.text;
+      if (msg.links && msg.links.length > 0) {
+        const linkedText = msg.links.map(linkId => `[Reference Content]:\n${nodes[linkId]?.text || ''}`).join('\n\n');
+        resolvedContent += `\n\n${linkedText}`;
+      }
+      return {
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: resolvedContent }],
+      };
+    });
+
+    let userPromptResolved = userPromptNode.text;
+    if (userPromptNode.links && userPromptNode.links.length > 0) {
+      const linkedText = userPromptNode.links.map(linkId => `[Reference Content]:\n${nodes[linkId]?.text || ''}`).join('\n\n');
+      userPromptResolved += `\n\n${linkedText}`;
+    }
+
     const userParts = [
       ...sourceParts,
-      { text: `\n\nUSER QUESTION:\n${userPrompt}` },
+      { text: `\n\nUSER QUESTION:\n${userPromptResolved}` },
     ];
 
     const response = await client.models.generateContent({
