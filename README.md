@@ -5,7 +5,7 @@ OSUCampus is a NotebookLM-style study companion for Oregon State University stud
 ## Live site
 
 - **Hosted on Render**: *(paste your Render URL here)*  
-Example format: `https://your-app-name.onrender.com`
+Example format: `https://osucampus.onrender.com`
 
 ## Key features
 
