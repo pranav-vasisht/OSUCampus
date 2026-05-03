@@ -335,7 +335,7 @@ https://graduate.oregonstate.edu/graduate-student-success/graduate-student-resou
     ];
 
     const response = await client.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.1-flash-lite-preview',
       contents: [
         ...formattedHistory,
         { role: 'user', parts: userParts },
@@ -369,7 +369,7 @@ async function generateFromSources(documents, systemInstruction, userPrompt) {
   }
 
   const response = await client.models.generateContent({
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.1-flash-lite-preview',
     contents: [
       { role: 'user', parts: [...sourceParts, { text: userPrompt }] },
     ],
@@ -469,26 +469,30 @@ Every question MUST have exactly 4 options and one correct answer.`;
  */
 export const generateMindMap = async (documents) => {
   const system = `You are a knowledge organization expert. Generate a hierarchical mind map of the key concepts from the provided source materials.
+Each node has a short UI label and a separate "prompt": instructions for a tutor explaining that node. Child prompts should assume the learner already understands parent topics and earlier siblings on the same branch (order matters).
 You MUST respond with ONLY valid JSON (no markdown fences, no extra text).
 The JSON must follow this exact schema:
 {
   "label": "Central Topic",
+  "prompt": "One or two sentences: what to explain for this topic using the sources (scope, relationships, key questions).",
   "children": [
     {
       "label": "Main Branch 1",
+      "prompt": "Instructions for explaining this branch given the root context.",
       "children": [
-        { "label": "Sub-topic 1a", "children": [] },
-        { "label": "Sub-topic 1b", "children": [] }
+        { "label": "Sub-topic 1a", "prompt": "...", "children": [] },
+        { "label": "Sub-topic 1b", "prompt": "...", "children": [] }
       ]
     }
   ]
 }
 Rules:
+- Every node MUST include both "label" and "prompt" (root too).
 - The root node should represent the overall topic
 - Create 3-6 main branches
 - Each main branch should have 2-5 children
 - Go at most 3 levels deep
-- Labels should be concise (2-6 words)
+- Labels should be concise (2-6 words); prompts should be specific and tutor-like (1-3 sentences)
 - Cover all major concepts from the sources`;
 
   const raw = await generateFromSources(documents, system,
